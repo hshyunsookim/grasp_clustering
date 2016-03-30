@@ -146,47 +146,34 @@ class LowLevelController:
 def set_model_gripper_command(robot,command):
     value = command[0]
 
-    oldVal = [0,0,0]
-    oldVal[0] = robot.driver(7).getValue()
-    oldVal[1] = robot.driver(10).getValue()
-    oldVal[2] = robot.driver(12).getValue()
+    q = robot.getConfig()
+    oldConfig = robot.getConfig()
+    for linkNum in [9,14,18]:
+        q[linkNum] = q[linkNum] + value*0.01
+    robot.setConfig(q)
 
-    # Drivers: [6(swivel),7,9(swivel),10,12]
-    # Links: [9,14,18]
-
-    # while maxForce < 1:
-    # while(1):
-    robot.driver(7).setValue(robot.driver(7).getValue() + value*0.01)
-    robot.driver(10).setValue(robot.driver(10).getValue() + value*0.01)
-    robot.driver(12).setValue(robot.driver(12).getValue() + value*0.01)
-    # print 1
     for i in range(robot.numLinks()):
         if robot.link(i).geometry().collides(simWorld.rigidObject(0).geometry()):
-            robot.driver(7).setValue(oldVal[0])
-            robot.driver(10).setValue(oldVal[1])
-            robot.driver(12).setValue(oldVal[2])
-
-
-        # forceList = visualizer.sim.getJointForces(visualizer.simworld.robot(0).link(9))[0:3] + \
-        #              visualizer.sim.getJointForces(visualizer.simworld.robot(0).link(14))[0:3] + \
-        #              visualizer.sim.getJointForces(visualizer.simworld.robot(0).link(18))[0:3]
-        # for i in range(len(forceList)):
-        #     if forceList[i] < 0:
-        #         forceList[i] = -forceList[i]
-        # maxForce = max(forceList)
-        # print maxForce
-        # return
-
-        # col.robotObjectCollisions(robot)
+            print "in collision, reverting to config in previous time-stamp"
+            robot.setConfig(oldConfig)
 
 
 def set_gripper_location_command(robot,command):
-    driverNum = command[0]
+    linkNum = int(command[0]) - 1
 
     # Drivers: [6(swivel),7,9(swivel),10,12]
-    # Links: [9,14,18]
-    print driverNum
-    robot.driver(1).setValue(robot.driver(driverNum).getValue() + 0.1)
+    # Links: [0,1,2,3,4,5]
+    qmin,qmax = robot.getJointLimits()
+
+    q = robot.getConfig()
+    # q[linkNum] = random.uniform(qmin[linkNum],qmax[linkNum])
+    if linkNum <3:
+        q[linkNum] = q[linkNum] + 0.01
+    else:
+        q[linkNum] = q[linkNum] + 0.1
+    robot.setConfig(q)
+
+    # robot.driver(driverNum).setValue(robot.driver(driverNum).getValue() + 0.1)
     # robot.driver(1).setValue(robot.driver(10).getValue() + value*0.05)
     # robot.driver(2).setValue(robot.driver(12).getValue() + value*0.05)
 
@@ -197,12 +184,13 @@ def run_controller(controller,command_queue):
     while True:
         c = command_queue.get()
         if c != None:
-            print "Running command",c
+            # print "Running command",c
             if c >= 'a' and c <= 'l':
                 controller.viewBinAction('bin_'+c.upper())
             elif c == 'x':
                 controller.commandGripper([1])
-                # print controller.robotModel.getCoriolisForceMatrix()
+            elif c == 'u':
+                controller.commandGripper([-1])
             else:
                 controller.moveHand(c)
 
@@ -265,7 +253,7 @@ class MyGLViewer(GLRealtimeProgram):
         # print max(abs(self.sim.getJointForces(self.simworld.robot(0).link(14))[3:6]))
         # print max(abs(self.sim.getJointForces(self.simworld.robot(0).link(18))[3:6]))
 
-
+        # print self.sim.getJointForces(self.simworld.robot(0).link(9))
 
 
 
