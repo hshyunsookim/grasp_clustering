@@ -1,0 +1,30 @@
+links   "bracket"
+
+#set the narrowest opening width here
+Tparent 1 0 0   0 1 0   0 0 1   0 0 0
+
+parents -1
+
+jointtype  p
+
+axis    0 0 1
+
+qmin    0
+qmax    0
+velmax  0
+accmax  0
+torquemax   0
+
+geometry    "Arm_Bracket.STL"
+
+geomtransform  0       0 0.001 0 0          -0.001 0 0  0        0 0 0.001 0
+
+
+mass    0.01
+automass
+
+
+joint normal 0
+
+
+
