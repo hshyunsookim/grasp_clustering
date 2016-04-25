@@ -15,7 +15,7 @@ from Queue import Queue
 from operator import itemgetter
 
 # The path of the klampt_models directory
-model_dir = "../ece490-s2016/group2/planning/klampt_models/"
+model_dir = "klampt_models/"
 
 # Joint numbers
 joints = [2, 3, 16, 17, 30]
@@ -23,6 +23,8 @@ joints = [2, 3, 16, 17, 30]
 # simulation mode
 global FAKE_SIMULATION
 FAKE_SIMULATION = 0
+
+dq = 1.0
 
 def draw_xformed(xform,localDrawFunc):
     """Draws something given a se3 transformation and a drawing function
@@ -107,7 +109,7 @@ class LowLevelController:
         queue will be moving at that velocity.  Otherwise, the end
         velocity will be zero."""
         self.lock.acquire()
-        if endvelocity == None: self.controller.setMilestone(destination)
+        if endvelocity == None: self.controller.setMilestone(destination,0)
         else: self.controller.setMilestone(destination,endvelocity)
         self.lock.release()
     def appendMilestone(self,destination,endvelocity=None):
@@ -115,7 +117,7 @@ class LowLevelController:
         is given, then the end of the queue will be moving at that velocity.
         Otherwise, the end velocity will be zero."""
         self.lock.acquire()
-        if endvelocity == None: self.controller.addMilestoneLinear(destination)
+        if endvelocity == None: self.controller.addMilestone(destination)
         else: self.controller.addMilestone(destination,endvelocity)
         self.lock.release()
     def isMoving(self):
@@ -129,9 +131,10 @@ class LowLevelController:
         self.lock.acquire()
         q = self.controller.getCommandedConfig()
         self.robotModel.setConfig(q)
-        set_model_gripper_command(self.robotModel,command)
+        completed = set_model_gripper_command(self.robotModel,command)
         self.controller.setMilestone(self.robotModel.getConfig())
         self.lock.release()
+        return completed
     def moveHand(self,command):
         """Sends the command to the indicated gripper.
         For the parallel-jaw gripper, [0] is closed, [1] is open
@@ -142,20 +145,56 @@ class LowLevelController:
         set_gripper_location_command(self.robotModel,command)
         self.controller.setMilestone(self.robotModel.getConfig())
         self.lock.release()
+    def randomMoveHand(self):
+        self.lock.acquire()
+        q = self.controller.getCommandedConfig()
+
+        # height = 0.5
+        q[1] = 0.5
+        self.robotModel.setConfig(q)
+        self.controller.setMilestone(q)
+
+        # random pose
+        self.controller.addMilestone(generate_random_pose(self.robotModel))
+
+        self.lock.release()
+
 
 def set_model_gripper_command(robot,command):
     value = command[0]
+    global dq
+
+    # grasp is completed
+    if dq<0.01:
+        print "grasp completed, object in hand"
+        return True
+
+    # set dq when opening fingers
+    if value == -1 :
+        dq = 0.01
 
     q = robot.getConfig()
     oldConfig = robot.getConfig()
     for linkNum in [9,14,18]:
-        q[linkNum] = q[linkNum] + value*0.01
-    robot.setConfig(q)
+        q[linkNum] = q[linkNum] + value*dq
 
+    # if joint goes out of limits before getting into contact with object
+    qmin, qmax = robot.getJointLimits()
+    for i in range(robot.numLinks()):
+        if qmin[i] > q[i] or qmax[i] < q[i]:
+            print "grasp failed"
+            return True
+
+
+    robot.setConfig(q)
     for i in range(robot.numLinks()):
         if robot.link(i).geometry().collides(simWorld.rigidObject(0).geometry()):
-            print "in collision, reverting to config in previous time-stamp"
+            dq = dq/2
+            # print "reverting to previous time-stamp, halving dq to", round(dq,4)
             robot.setConfig(oldConfig)
+
+    # grasp is not completed
+    return False
 
 
 def set_gripper_location_command(robot,command):
@@ -177,6 +216,37 @@ def set_gripper_location_command(robot,command):
     # robot.driver(1).setValue(robot.driver(10).getValue() + value*0.05)
     # robot.driver(2).setValue(robot.driver(12).getValue() + value*0.05)
 
+def generate_random_pose(robot):
+    q = robot.getConfig()
+    links = [3,4,5]
+    for link in links:
+        q[link] = random.uniform(-math.pi, math.pi)
+    return q
+
+def generate_trajectory(qi, qf):
+    i = 0
+    endIndex = 2
+    path = [0.0, 0.0]
+    path[0] = qi
+    path[1] = qf
+    print qi, qf
+    while i < endIndex-1:
+        # print i, endIndex
+        q = path[i]
+        qNext = path[i+1]
+        dt = vectorops.distance(q,qNext)
+
+        # smooth trajectory by interpolating between two consecutive configurations
+        # if the distance between the two is big
+        if dt>0.1:
+            qInterp = vectorops.div(vectorops.add(q, qNext), 2)
+            path.insert(i+1, qInterp)
+            endIndex +=1
+            continue
+        else:
+            i += 1
+    print len(path)
+    return path
 
 # this function is called on a thread
 def run_controller(controller,command_queue):
@@ -188,12 +258,18 @@ def run_controller(controller,command_queue):
             if c >= 'a' and c <= 'l':
                 controller.viewBinAction('bin_'+c.upper())
             elif c == 'x':
-                controller.commandGripper([1])
+                completed = False
+                global dq
+                dq = 1.0
+                while not completed:
+                    completed = controller.commandGripper([1])
+                    time.sleep(0.01)
             elif c == 'u':
                 controller.commandGripper([-1])
+            elif c == 'r':
+                controller.randomMoveHand()
             else:
                 controller.moveHand(c)
-
         else:
             print "Waiting for command..."
             time.sleep(0.1)
