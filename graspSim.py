@@ -164,14 +164,16 @@ def set_model_gripper_command(robot,command):
     value = command[0]
     global dq
 
+    # set dq when opening fingers
+    if value == -1 :
+        dq = 0.01
+
     # grasp is completed
     if dq<0.01:
         print "grasp completed, object in hand"
         return True
 
-    # set dq when opening fingers
-    if value == -1 :
-        dq = 0.01
+
 
     q = robot.getConfig()
     oldConfig = robot.getConfig()
@@ -380,7 +382,8 @@ def load_item_geometry(bmin,bmax,geometry_ptr = None):
     if geometry_ptr == None:
         geometry_ptr = Geometry3D()
 
-    fn = "../ece490-s2016/group2/planning/klampt_models/cube.tri"
+    fn = model_dir + "cube.tri"
+    # fn = model_dir + "items/oreo_mega_stuf/textured_meshes/optimized_poisson_textured_mesh.ply"
     if not geometry_ptr.loadFile(fn):
         print "Error loading cube file",fn
         exit(1)
