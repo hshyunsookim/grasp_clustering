@@ -184,8 +184,6 @@ def set_model_gripper_command(robot,command):
         print "grasp completed, object in hand"
         return True
 
-
-
     q = robot.getConfig()
     oldConfig = robot.getConfig()
     for linkNum in [9,14,18]:
@@ -197,7 +195,6 @@ def set_model_gripper_command(robot,command):
         if qmin[i] > q[i] or qmax[i] < q[i]:
             print "grasp failed"
             return True
-
 
     robot.setConfig(q)
     for i in range(robot.numLinks()):
@@ -431,7 +428,7 @@ def load_item_geometry(bmin,bmax,geometry_ptr = None):
     if geometry_ptr == None:
         geometry_ptr = Geometry3D()
 
-    fn = model_dir + "cube.tri"
+    fn = model_dir + "cylinder.tri"
     # fn = model_dir + "items/oreo_mega_stuf/textured_meshes/optimized_poisson_textured_mesh.ply"
     if not geometry_ptr.loadFile(fn):
         print "Error loading cube file",fn
@@ -454,7 +451,7 @@ def spawn_objects(world):
     bmin = [0,0,0]
     bmax = [0.05,0.05,0.25]
 
-    mass = 0.01
+    mass = 0.001
     m = obj.getMass()
     m.setMass(mass)
     m.setCom([0,0,0])
@@ -462,7 +459,7 @@ def spawn_objects(world):
     obj.setMass(m)
 
     c = obj.getContactParameters()
-    c.kFriction = 0.6
+    c.kFriction = 10
     c.kRestitution = 0.1;
     c.kStiffness = 10
     c.kDamping = 10
