@@ -69,6 +69,17 @@ def draw_wire_box(bmin,bmax):
 def draw_oriented_wire_box(xform,bmin,bmax):
     """Helper: draws an oriented wireframe box"""
     draw_xformed(xform,lambda:draw_wire_box(bmin,bmax))
+def draw_vector(x,n,k):
+    glDisable(GL_LIGHTING)
+    glColor3f(1,1,0)
+    glLineWidth(5.0)
+    glBegin(GL_LINES)
+    glVertex3f(x[0],x[1],x[2])
+    glVertex3f(x[0]+k*n[0],x[1]+k*n[1],x[2]+k*n[2])
+    glEnd()
+    glEnable(GL_LIGHTING)
+
+
 
 class LowLevelController:
     """A low-level interface to the Baxter robot (with parallel jaw
@@ -198,7 +209,6 @@ def set_model_gripper_command(robot,command):
     # grasp is not completed
     return False
 
-
 def set_gripper_location_command(robot,command):
     linkNum = int(command[0]) - 1
 
@@ -295,10 +305,43 @@ class MyGLViewer(GLRealtimeProgram):
         self.thread = Thread(target=run_controller,args=(self.low_level_controller,self.command_queue))
         self.thread.start()
 
+        # enable constact feedback
+        self.sim.enableContactFeedbackAll()
+
+        # visual settings
+        self.showFrames = False
+
     def idle(self):
         if self.simulate:
             self.sim.simulate(self.dt)
             glutPostRedisplay()
+
+    def drawContactForces(self):
+        contacted=False;
+        for i in range(self.simworld.numIDs()):
+            for j in range(i+1, self.simworld.numIDs()):
+                if(self.sim.hadContact(i,j)):
+                    if(not contacted):
+                        # print "Touching bodies:\n"
+                        contacted=True
+                    f = self.sim.meanContactForce(i,j)
+                    contacts = self.sim.getContacts(i,j)
+
+                    # print self.simworld.getName(i),self.simworld.getName(j), len(contacts)
+                    x=[0,0,0]
+                    n=[0,0,0]
+                    k=0
+                    scale = 3
+
+                    if len(contacts) != 0:
+                        for numContact in range(len(contacts)):
+                            x = vectorops.add(x,contacts[numContact][0:3])
+                            n = vectorops.add(n,contacts[numContact][3:6])
+                            k += contacts[numContact][6]
+                        x = vectorops.div(x,len(contacts))
+                        n = vectorops.div(n,len(contacts))
+                        k = k/(len(contacts)*scale)
+                        draw_vector(x,n,k)
 
     def display(self):
         #draw the world
@@ -317,6 +360,14 @@ class MyGLViewer(GLRealtimeProgram):
             r.drawGL(False)
         glDisable(GL_BLEND)
 
+        self.drawContactForces()
+
+                    # print self.sim.inContact(i,j)
+                    # print self.simworld.getName(i),"-",self.simworld.getName(j), f
+              # t = self.sim.mean
+              # printf("%s - %s: force %g %g %g\n",world.GetName(i).c_str(),world.GetName(j)).c_str(),f.x,f.y,f.z,t.x,t.y,t.z);
+
+
         # print contact.simContactMap(self.sim)
         # qSim = self.simworld.robot(0).getConfig()
         # qReal = self.low_level_controller.getSensedConfig()
@@ -334,12 +385,10 @@ class MyGLViewer(GLRealtimeProgram):
         # print self.sim.getJointForces(self.simworld.robot(0).link(9))
 
 
-
-
-
         # Show world frame and shelf frame
-        gldraw.xform_widget(se3.identity(), 0.15, 0.017, lighting=True, fancy=True)
-        gldraw.xform_widget(self.simworld.robot(0).link(0).getParentTransform(), 0.15, 0.017, lighting=True, fancy=True)
+        if self.showFrames:
+            gldraw.xform_widget(se3.identity(), 0.15, 0.017, lighting=True, fancy=True)
+            gldraw.xform_widget(self.simworld.robot(0).link(0).getParentTransform(), 0.15, 0.017, lighting=True, fancy=True)
         return
 
     def keyboardfunc(self,c,x,y):
