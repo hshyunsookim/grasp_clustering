@@ -14,6 +14,8 @@ from threading import Thread,Lock
 from Queue import Queue
 from operator import itemgetter
 
+import datacollection
+
 # The path of the klampt_models directory
 model_dir = "klampt_models/"
 
@@ -78,8 +80,6 @@ def draw_vector(x,n,k):
     glVertex3f(x[0]+k*n[0],x[1]+k*n[1],x[2]+k*n[2])
     glEnd()
     glEnable(GL_LIGHTING)
-
-
 
 class LowLevelController:
     """A low-level interface to the Baxter robot (with parallel jaw
@@ -170,7 +170,6 @@ class LowLevelController:
 
         self.lock.release()
 
-
 def set_model_gripper_command(robot,command):
     value = command[0]
     global dq
@@ -205,7 +204,6 @@ def set_model_gripper_command(robot,command):
 
     # grasp is not completed
     return False
-
 def set_gripper_location_command(robot,command):
     linkNum = int(command[0]) - 1
 
@@ -224,14 +222,12 @@ def set_gripper_location_command(robot,command):
     # robot.driver(driverNum).setValue(robot.driver(driverNum).getValue() + 0.1)
     # robot.driver(1).setValue(robot.driver(10).getValue() + value*0.05)
     # robot.driver(2).setValue(robot.driver(12).getValue() + value*0.05)
-
 def generate_random_pose(robot):
     q = robot.getConfig()
     links = [3,4,5]
     for link in links:
         q[link] = random.uniform(-math.pi, math.pi)
     return q
-
 def generate_trajectory(qi, qf):
     i = 0
     endIndex = 2
@@ -264,9 +260,7 @@ def run_controller(controller,command_queue):
         c = command_queue.get()
         if c != None:
             # print "Running command",c
-            if c >= 'a' and c <= 'l':
-                controller.viewBinAction('bin_'+c.upper())
-            elif c == 'x':
+            if c == 'x':
                 completed = False
                 global dq
                 dq = 1.0
@@ -277,6 +271,12 @@ def run_controller(controller,command_queue):
                 controller.commandGripper([-1])
             elif c == 'r':
                 controller.randomMoveHand()
+            elif c == 'n':
+                dc.newFile()
+            elif c == 's':
+                global dc
+                dc.update()
+                dc.save()
             else:
                 controller.moveHand(c)
         else:
@@ -288,7 +288,7 @@ class MyGLViewer(GLRealtimeProgram):
     def __init__(self,simworld,planworld):
         GLRealtimeProgram.__init__(self,"My GL program")
         self.simworld = simworld
-        self.planworld = planworld
+        self.planworld = None
         self.sim = robotsim.Simulator(simworld)
         self.simulate = True
         # self.sim.simulate(0)
@@ -307,12 +307,10 @@ class MyGLViewer(GLRealtimeProgram):
 
         # visual settings
         self.showFrames = False
-
     def idle(self):
         if self.simulate:
             self.sim.simulate(self.dt)
             glutPostRedisplay()
-
     def drawContactForces(self):
         contacted=False;
         for i in range(self.simworld.numIDs()):
@@ -339,7 +337,6 @@ class MyGLViewer(GLRealtimeProgram):
                         n = vectorops.div(n,len(contacts))
                         k = k/(len(contacts)*scale)
                         draw_vector(x,n,k)
-
     def display(self):
         #draw the world
         self.sim.updateWorld()
@@ -387,7 +384,6 @@ class MyGLViewer(GLRealtimeProgram):
             gldraw.xform_widget(se3.identity(), 0.15, 0.017, lighting=True, fancy=True)
             gldraw.xform_widget(self.simworld.robot(0).link(0).getParentTransform(), 0.15, 0.017, lighting=True, fancy=True)
         return
-
     def keyboardfunc(self,c,x,y):
         c = c.lower()
         if c=='z':
@@ -420,7 +416,6 @@ def load_world():
         world.robot(0).link(i).geometry().setCollisionMargin(0)
 
     return world
-
 def load_item_geometry(bmin,bmax,geometry_ptr = None):
     """Loads the geometry of the given item and returns it.  If geometry_ptr
     is provided, then it is assumed to be a Geometry3D object and the object
@@ -440,7 +435,6 @@ def load_item_geometry(bmin,bmax,geometry_ptr = None):
     geometry_ptr.transform(scale,translate)
     geometry_ptr.setCurrentTransform(so3.identity(),[0,0,0])
     return geometry_ptr
-
 def spawn_objects(world):
     """For all ground_truth_items, spawns RigidObjects in the world
     according to their sizes / mass properties"""
@@ -465,12 +459,10 @@ def spawn_objects(world):
     c.kDamping = 10
     obj.setContactParameters(c)
 
-    simgeometry = obj.geometry()
-    load_item_geometry(bmin,bmax,simgeometry)
+    load_item_geometry(bmin,bmax,obj.geometry())
 
-    obj.setTransform(so3.identity(),[0.0,0,0.15])
-    return
-
+    obj.setTransform(so3.identity(),[0.0,0,0.14])
+    return obj
 def myCameraSettings(visualizer):
     visualizer.camera.tgt = [0, 0, -0.25]
     visualizer.camera.rot = [0,0.5,0.9]
@@ -485,12 +477,15 @@ if __name__ == "__main__":
     world = load_world()
 
     # spawn_objects(world)
-    spawn_objects(simWorld)
+    obj = spawn_objects(simWorld)
 
     # collider
     col = robotcollide.WorldCollider(simWorld)
 
-    #run the visualizer
+    # dataCollector
+    dc = datacollection.dataCollector(simWorld,obj,simWorld.robot(0))
+
+        #run the visualizer
     visualizer = MyGLViewer(simWorld,world)
     myCameraSettings(visualizer)
     visualizer.run()
