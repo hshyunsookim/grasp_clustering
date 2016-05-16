@@ -15,18 +15,16 @@ from Queue import Queue
 from operator import itemgetter
 
 import datacollection
+import poseGenerator
 
 # The path of the klampt_models directory
 model_dir = "klampt_models/"
-
-# Joint numbers
-joints = [2, 3, 16, 17, 30]
 
 # simulation mode
 global FAKE_SIMULATION
 FAKE_SIMULATION = 0
 
-dq = 1.0
+# dq = 1.0
 
 def draw_xformed(xform,localDrawFunc):
     """Draws something given a se3 transformation and a drawing function
@@ -161,14 +159,24 @@ class LowLevelController:
         q = self.controller.getCommandedConfig()
 
         # height = 0.5
-        q[1] = 0.5
+        # q[1] = 0.5
         self.robotModel.setConfig(q)
         self.controller.setMilestone(q)
 
         # random pose
-        self.controller.addMilestone(generate_random_pose(self.robotModel))
+        self.controller.addMilestone(pg.randomPose())
 
         self.lock.release()
+    def test(self,goal):
+        self.lock.acquire()
+        q = self.controller.getCommandedConfig()
+        self.robotModel.setConfig(q)
+        self.controller.setMilestone(q)
+
+        self.controller.addMilestone(goal)
+
+        self.lock.release()
+
 
 def set_model_gripper_command(robot,command):
     value = command[0]
@@ -179,7 +187,7 @@ def set_model_gripper_command(robot,command):
         dq = 0.01
 
     # grasp is completed
-    if dq<0.01:
+    if dq<0.005:
         print "grasp completed, object in hand"
         return True
 
@@ -263,20 +271,60 @@ def run_controller(controller,command_queue):
             if c == 'x':
                 completed = False
                 global dq
-                dq = 1.0
+                dq = 0.5
                 while not completed:
                     completed = controller.commandGripper([1])
                     time.sleep(0.01)
             elif c == 'u':
-                controller.commandGripper([-1])
+                for i in range(50):
+                    controller.commandGripper([-1])
+                    time.sleep(0.01)
+
             elif c == 'r':
+                time.sleep(.5)
                 controller.randomMoveHand()
+                time.sleep(.5)
             elif c == 'n':
                 dc.newFile()
             elif c == 's':
                 global dc
                 dc.update()
                 dc.save()
+            elif c == 't':
+                controller.test( pg.test() )
+            elif c == 'o':
+                command_queue.put('n')
+                for i in range(100):
+                    command_queue.put('x')
+                    command_queue.put('x')
+                    command_queue.put('s')
+                    command_queue.put('u')
+                    command_queue.put('r')
+
+                # dc.newFile()
+
+                # for i in range(100):
+                #     completed = False
+                #     global dq
+                #     dq = 0.5
+                #     while not completed:
+                #         completed = controller.commandGripper([1])
+                #         time.sleep(0.01)
+                #     time.sleep(1)
+
+                #     dc.update()
+                #     dc.save()
+
+                #     for i in range(15):
+                #         controller.commandGripper([-1])
+                #         time.sleep(0.01)
+
+                #     time.sleep(0.5)
+
+                #     controller.randomMoveHand()
+                #     time.sleep(0.5)
+
+
             else:
                 controller.moveHand(c)
         else:
@@ -443,7 +491,7 @@ def spawn_objects(world):
 
     obj = world.makeRigidObject('object1')
     bmin = [0,0,0]
-    bmax = [0.05,0.05,0.25]
+    bmax = [0.02,0.05,0.25]
 
     mass = 0.001
     m = obj.getMass()
@@ -453,7 +501,7 @@ def spawn_objects(world):
     obj.setMass(m)
 
     c = obj.getContactParameters()
-    c.kFriction = 10
+    c.kFriction = 100
     c.kRestitution = 0.1;
     c.kStiffness = 10
     c.kDamping = 10
@@ -482,10 +530,14 @@ if __name__ == "__main__":
     # collider
     col = robotcollide.WorldCollider(simWorld)
 
+    #run the visualizer
+    visualizer = MyGLViewer(simWorld,world)
+    myCameraSettings(visualizer)
+
     # dataCollector
     dc = datacollection.dataCollector(simWorld,obj,simWorld.robot(0))
 
-        #run the visualizer
-    visualizer = MyGLViewer(simWorld,world)
-    myCameraSettings(visualizer)
+    # poseGenerator
+    pg = poseGenerator.PoseGenerator(simWorld, simWorld.robot(0), visualizer.sim.controller(0))
+
     visualizer.run()
