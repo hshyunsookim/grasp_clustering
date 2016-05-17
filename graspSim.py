@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+# TODO:  1) generate random config (from init. config) that is incrementally further away
+#        2) reset object position to its initial location after each trial
 from klampt import robotsim
 from klampt.glprogram import *
 from klampt import vectorops, se3, so3, loader, gldraw, ik, contact,robotcollide
@@ -154,7 +156,7 @@ class LowLevelController:
         set_gripper_location_command(self.robotModel,command)
         self.controller.setMilestone(self.robotModel.getConfig())
         self.lock.release()
-    def randomMoveHand(self):
+    def randomMoveHand(self, range=1):
         self.lock.acquire()
         q = self.controller.getCommandedConfig()
 
@@ -164,7 +166,7 @@ class LowLevelController:
         self.controller.setMilestone(q)
 
         # random pose
-        self.controller.addMilestone(pg.randomPose())
+        self.controller.addMilestone(pg.randomPose(range=range))
 
         self.lock.release()
     def test(self,goal):
@@ -189,7 +191,7 @@ def set_model_gripper_command(robot,command):
     # grasp is completed
     if dq<0.005:
         print "grasp completed, object in hand"
-        return True
+        return [True, True]
 
     q = robot.getConfig()
     oldConfig = robot.getConfig()
@@ -200,8 +202,8 @@ def set_model_gripper_command(robot,command):
     qmin, qmax = robot.getJointLimits()
     for i in range(robot.numLinks()):
         if qmin[i] > q[i] or qmax[i] < q[i]:
-            print "grasp failed"
-            return True
+            print "grasp completed, but object NOT in hand"
+            return [True, False]
 
     robot.setConfig(q)
     for i in range(robot.numLinks()):
@@ -211,7 +213,7 @@ def set_model_gripper_command(robot,command):
             robot.setConfig(oldConfig)
 
     # grasp is not completed
-    return False
+    return [False, False]
 def set_gripper_location_command(robot,command):
     linkNum = int(command[0]) - 1
 
@@ -273,7 +275,7 @@ def run_controller(controller,command_queue):
                 global dq
                 dq = 0.5
                 while not completed:
-                    completed = controller.commandGripper([1])
+                    completed = controller.commandGripper([1])[0]
                     time.sleep(0.01)
             elif c == 'u':
                 for i in range(50):
@@ -282,7 +284,7 @@ def run_controller(controller,command_queue):
 
             elif c == 'r':
                 time.sleep(.5)
-                controller.randomMoveHand()
+                controller.randomMoveHand(range=10)
                 time.sleep(.5)
             elif c == 'n':
                 dc.newFile()
@@ -291,39 +293,18 @@ def run_controller(controller,command_queue):
                 dc.update()
                 dc.save()
             elif c == 't':
-                controller.test( pg.test() )
+                # python = sys.executable
+                # os.execl(python, python, * sys.argv)
             elif c == 'o':
+                # store current configuration as the "example"
                 command_queue.put('n')
-                for i in range(100):
+                command_queue.put('s')
+                for i in range(5):
+                    command_queue.put('t')
+                    command_queue.put('r')
                     command_queue.put('x')
                     command_queue.put('x')
                     command_queue.put('s')
-                    command_queue.put('u')
-                    command_queue.put('r')
-
-                # dc.newFile()
-
-                # for i in range(100):
-                #     completed = False
-                #     global dq
-                #     dq = 0.5
-                #     while not completed:
-                #         completed = controller.commandGripper([1])
-                #         time.sleep(0.01)
-                #     time.sleep(1)
-
-                #     dc.update()
-                #     dc.save()
-
-                #     for i in range(15):
-                #         controller.commandGripper([-1])
-                #         time.sleep(0.01)
-
-                #     time.sleep(0.5)
-
-                #     controller.randomMoveHand()
-                #     time.sleep(0.5)
-
 
             else:
                 controller.moveHand(c)

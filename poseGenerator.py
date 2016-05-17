@@ -18,14 +18,14 @@ class PoseGenerator:
         self.base_range = [0.005,0.005,0.005]
         self.pose_range = [math.pi/180*2,math.pi/180*2,math.pi/180*2]
 
-    def randomPose(self):
+    def randomPose(self, range = 1):
         qmin,qmax = self.robot.getJointLimits()
         center = self.controller.getCommandedConfig()
         q = center
         rangeVal = self.base_range+self.pose_range
 
         for j in base_links:
-            q[j] = random.uniform(max(qmin[j],center[j]-rangeVal[j]),min(qmax[j],center[j]+rangeVal[j]))
+            q[j] = random.uniform(max(qmin[j],center[j]-rangeVal[j]*range),min(qmax[j],center[j]+rangeVal[j]*range))
 
         return q
 
