@@ -16,6 +16,8 @@ class dataCollector:
 
         # store configuration of these links
         self.validLinks = [8,9,13,14,18]
+        swivel_finger_links = [8,13]
+        proximal_finger_links = [9,14,18]
 
     def update(self):
         self.objXform = self.object.getTransform()
