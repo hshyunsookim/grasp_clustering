@@ -18,7 +18,7 @@ class PoseGenerator:
         self.base_range = [0.005,0.005,0.005]
         self.pose_range = [math.pi/180*2,math.pi/180*2,math.pi/180*2]
 
-    def randomPose(self, range = 1):
+    def randomPose(self, range = 1.0):
         qmin,qmax = self.robot.getJointLimits()
         center = self.controller.getCommandedConfig()
         q = center
@@ -26,8 +26,61 @@ class PoseGenerator:
 
         for j in base_links:
             q[j] = random.uniform(max(qmin[j],center[j]-rangeVal[j]*range),min(qmax[j],center[j]+rangeVal[j]*range))
-
         return q
+
+    def randomPoses(self, iter):
+        qList = []
+        # for i in range(iter):
+        i = 1
+        while len(qList) < iter:
+
+            q = self.randomPose(range=i/5.0)
+
+            self.robot.setConfig(q)
+            d = self.distance()
+
+            # hand too close to object
+            dObjHand = d[0]
+            if dObjHand < 0.01:
+                continue
+
+            # hand too close to ground
+            dGroundHand = d[1]
+            if dGroundHand < 0.01:
+                continue
+
+            print i, d
+            qList.append(q)
+            i += 1
+
+        return qList
+
+    def distance(self):
+        obj = self.world.rigidObject(0).geometry()
+        ground = self.world.terrain(0).geometry()
+
+        # distance between hand links and object
+        d = []
+        for i in range(self.robot.numLinks()):
+            link = self.robot.link(i).geometry()
+            d.append(obj.distance(link))
+        dObjHand = min(d[5:])
+
+        # distance between hand links and ground
+        d = []
+        for i in range(self.robot.numLinks()):
+            link = self.robot.link(i).geometry()
+            d.append(ground.distance(link))
+        dGroundHand = min(d[5:])
+
+        # distance between ground and object
+        dGroundObj = ground.distance(obj)
+
+        return [dObjHand, dGroundHand, dGroundObj]
+
+    def resetWorld(self):
+        self.world.rigidObject(0).geometry().translate([1,1,1])
+
 
     def get_ik_solutions(self,goal,maxResults=10,maxIters=1000,tol=1e-3,printer=True):
         initialConfig = self.controller.getCommandedConfig()
