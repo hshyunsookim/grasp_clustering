@@ -2,7 +2,7 @@
 clc, clear
 
 addpath('../data_logs')
-M = dlmread('datalog_20160516-174150.txt');
+M = dlmread('datalog_20160518-151529.txt');
 
 xform = M(:,1:12);
 quat = zeros(size(M,1),4);
@@ -31,15 +31,18 @@ clearvars -except M xform quat w theta x y z config proximal_finger swivel_finge
 %% Plot
 figure(1), clf
 subplot(2,2,1)
-plot3vec(w, theta)
+plot3vec(w(1:213,:), theta(1:213,:), '-k.'), hold on
+plot3vec(w(214:end,:), theta(214:end,:), '-r.')
 title('rotation axis * angle')
 
 subplot(2,2,2)
-plot3vec(w)
+plot3vec([x(1:213,:),y(1:213,:),z(1:213,:)], '-k.'), hold on
+plot3vec([x(214:end,:),y(214:end,:),z(214:end,:)], '-r.')
 title('relative position')
 
 subplot(2,2,3)
-plot3(proximal_finger(:,1),proximal_finger(:,2),proximal_finger(:,3),'k.')
+plot3(proximal_finger(1:213,1),proximal_finger(1:213,2),proximal_finger(1:213,3),'k.'), hold on
+plot3(proximal_finger(214:end,1),proximal_finger(214:end,2),proximal_finger(214:end,3),'r.')
 axis([0 2 0 2 0 2])
 title('finger flexion')
 
