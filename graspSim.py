@@ -2,6 +2,7 @@
 
 # TODO:  1) generate random config (from init. config) that is incrementally further away
 #        2) reset object position to its initial location after each trial
+#        3) log palm normal vector direction and visualize it instead of w/theta
 from klampt import robotsim
 from klampt.glprogram import *
 from klampt import vectorops, se3, so3, loader, gldraw, ik, contact,robotcollide
@@ -120,7 +121,7 @@ class LowLevelController:
         queue will be moving at that velocity.  Otherwise, the end
         velocity will be zero."""
         self.lock.acquire()
-        if endvelocity == None: self.controller.setMilestone(destination,0)
+        if endvelocity == None: self.controller.setMilestone(destination)
         else: self.controller.setMilestone(destination,endvelocity)
         self.lock.release()
     def appendMilestone(self,destination,endvelocity=None):
@@ -190,7 +191,7 @@ def set_model_gripper_command(robot,command):
 
     # grasp is completed
     if dq<0.005:
-        print "grasp completed, object in hand"
+        # print "grasp completed, object in hand"
         return [True, True]
 
     q = robot.getConfig()
@@ -284,15 +285,70 @@ def run_controller(controller,command_queue):
 
             elif c == 'r':
                 time.sleep(.5)
-                controller.randomMoveHand(range=10)
+                controller.randomMoveHand(range=1)
                 time.sleep(.5)
             elif c == 'n':
                 dc.newFile()
             elif c == 's':
-                global dc
                 dc.update()
                 dc.save()
+            elif c == 'd':
+                print pg.distance()
             elif c == 't':
+                print "test"
+                # print simWorld.rigidObject(0).getTransform()
+                # simWorld.rigidObject(0).setTransform(so3.identity(), [1,1,1])
+                # visualizer.refresh()
+
+                # pg.resetWorld()
+                # simWorld.rigidObject(0).geometry().setCurrentTransform(so3.identity(), [1,1,1])
+                # simWorld.rigidObject(0).geometry().transform(so3.identity(), [1,1,1])
+                # obj = simWorld.rigidObject(0)
+                # xform = obj.getTransform()
+                # obj.geometry().transform(so3.identity(), vectorops.add(xform[1], [0,0,0.2]))
+
+                poses = pg.randomPoses(100)
+                # dc.newFile()
+                dc.update()
+                dc.save()
+                for i in range(len(poses)):
+                    for j in range(50):
+                        controller.commandGripper([-1])
+                        time.sleep(0.01)
+
+                    # print pg.distance()
+                    time.sleep(0.5)
+                    controller.setMilestone(poses[i])
+                    time.sleep(0.5)
+
+                    completed = False
+                    global dq
+                    dq = 0.5
+                    while not completed:
+                        result = controller.commandGripper([1])
+                        completed = result[0]
+                        graspSuccess = result[1]
+                        time.sleep(0.01)
+
+                    completed = False
+                    dq = 0.5
+                    while not completed:
+                        result = controller.commandGripper([1])
+                        completed = result[0]
+                        graspSuccess = result[1]
+                        time.sleep(0.01)
+
+                    # time.sleep()
+
+                    if graspSuccess:
+                        print "grasp #", i, "success, saving to log"
+                        dc.update()
+                        dc.save()
+                    else:
+                        print "grasp #", i, "fail, not saving to log"
+                        break
+
+
                 # python = sys.executable
                 # os.execl(python, python, * sys.argv)
             elif c == 'o':
@@ -300,7 +356,7 @@ def run_controller(controller,command_queue):
                 command_queue.put('n')
                 command_queue.put('s')
                 for i in range(5):
-                    command_queue.put('t')
+                    command_queue.put('u')
                     command_queue.put('r')
                     command_queue.put('x')
                     command_queue.put('x')
@@ -385,6 +441,11 @@ class MyGLViewer(GLRealtimeProgram):
 
         self.drawContactForces()
 
+
+
+
+
+
                     # print self.sim.inContact(i,j)
                     # print self.simworld.getName(i),"-",self.simworld.getName(j), f
               # t = self.sim.mean
@@ -418,6 +479,13 @@ class MyGLViewer(GLRealtimeProgram):
         if c=='z':
             self.simulate = not self.simulate
             print "Simulating:",self.simulate
+        elif c=='`':
+            print "Testing:"
+            # self.simworld.rigidObject(0).geometry().transform(so3.identity(), [0,0,0.21])
+            print self.simworld.rigidObject(0).getTransform()
+            # self.simworld.rigidObject(0).setTransform(so3.identity(), [0,0,1])
+            self.simworld.rigidObject(0).setTransform(so3.identity(), [0,0,0.21])
+            print self.simworld.rigidObject(0).getTransform()
         else:
             self.command_queue.put(c)
             if c=='q':
@@ -482,7 +550,7 @@ def spawn_objects(world):
     obj.setMass(m)
 
     c = obj.getContactParameters()
-    c.kFriction = 100
+    c.kFriction = 1
     c.kRestitution = 0.1;
     c.kStiffness = 10
     c.kDamping = 10
@@ -522,3 +590,4 @@ if __name__ == "__main__":
     pg = poseGenerator.PoseGenerator(simWorld, simWorld.robot(0), visualizer.sim.controller(0))
 
     visualizer.run()
+
