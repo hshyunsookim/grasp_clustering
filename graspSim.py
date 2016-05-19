@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# TODO:  1) generate random config (from init. config) that is incrementally further away
+# TODO:  1) load non-primitive object (ie. mug cup?)
 #        2) reset object position to its initial location after each trial
 #        3) log palm normal vector direction and visualize it instead of w/theta
 from klampt import robotsim
