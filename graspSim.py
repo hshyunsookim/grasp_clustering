@@ -524,10 +524,10 @@ def load_item_geometry(bmin,bmax,geometry_ptr = None):
     if geometry_ptr == None:
         geometry_ptr = Geometry3D()
 
-    # fn = model_dir + "cylinder.tri"
-    fn = model_dir + "objects/cupmodel/Mug.obj"
-    bmin = [0,0,0]
-    bmax = [1.2,1.5,1.25]
+    fn = model_dir + "cylinder.tri"
+    # fn = model_dir + "objects/cupmodel/Mug.obj"
+    # bmin = [0,0,0]
+    # bmax = [1.2,1.5,1.25]
     # fn = model_dir + "items/rollodex_mesh_collection_jumbo_pencil_cup/textured_meshes/optimized_poisson_textured_mesh.ply"
 
     if not geometry_ptr.loadFile(fn):
