@@ -294,6 +294,7 @@ def run_controller(controller,command_queue):
                 dc.save()
             elif c == 'd':
                 print pg.distance()
+                dc.update()
             elif c == 't':
                 print "test"
                 # print simWorld.rigidObject(0).getTransform()
@@ -307,10 +308,10 @@ def run_controller(controller,command_queue):
                 # xform = obj.getTransform()
                 # obj.geometry().transform(so3.identity(), vectorops.add(xform[1], [0,0,0.2]))
 
-                poses = pg.randomPoses(100)
+                poses = pg.randomPoses(300)
                 # dc.newFile()
-                dc.update()
-                dc.save()
+                # dc.update()
+                # dc.save()
                 for i in range(len(poses)):
                     for j in range(50):
                         controller.commandGripper([-1])
@@ -391,7 +392,7 @@ class MyGLViewer(GLRealtimeProgram):
         self.sim.enableContactFeedbackAll()
 
         # visual settings
-        self.showFrames = False
+        self.showFrames = True
     def idle(self):
         if self.simulate:
             self.sim.simulate(self.dt)
@@ -469,10 +470,13 @@ class MyGLViewer(GLRealtimeProgram):
         # print self.sim.getJointForces(self.simworld.robot(0).link(9))
 
 
-        # Show world frame and shelf frame
         if self.showFrames:
-            gldraw.xform_widget(se3.identity(), 0.15, 0.017, lighting=True, fancy=True)
-            gldraw.xform_widget(self.simworld.robot(0).link(0).getParentTransform(), 0.15, 0.017, lighting=True, fancy=True)
+            # world frame
+            gldraw.xform_widget(se3.identity(), 0.15, 0.005, lighting=True, fancy=True)
+            # robot frame
+            gldraw.xform_widget(self.simworld.robot(0).link(6).getTransform(), 0.15, 0.005, lighting=True, fancy=True)
+            # object frame
+            gldraw.xform_widget(self.simworld.rigidObject(0).getTransform(), 0.15, 0.005, lighting = True, fancy = True)
         return
     def keyboardfunc(self,c,x,y):
         c = c.lower()
@@ -520,8 +524,12 @@ def load_item_geometry(bmin,bmax,geometry_ptr = None):
     if geometry_ptr == None:
         geometry_ptr = Geometry3D()
 
-    fn = model_dir + "cylinder.tri"
-    # fn = model_dir + "items/oreo_mega_stuf/textured_meshes/optimized_poisson_textured_mesh.ply"
+    # fn = model_dir + "cylinder.tri"
+    fn = model_dir + "objects/cupmodel/Mug.obj"
+    bmin = [0,0,0]
+    bmax = [1.2,1.5,1.25]
+    # fn = model_dir + "items/rollodex_mesh_collection_jumbo_pencil_cup/textured_meshes/optimized_poisson_textured_mesh.ply"
+
     if not geometry_ptr.loadFile(fn):
         print "Error loading cube file",fn
         exit(1)
@@ -558,7 +566,7 @@ def spawn_objects(world):
 
     load_item_geometry(bmin,bmax,obj.geometry())
 
-    obj.setTransform(so3.identity(),[0.0,0,0.14])
+    obj.setTransform(so3.identity(),[0,-0.2,0.14])
     return obj
 def myCameraSettings(visualizer):
     visualizer.camera.tgt = [0, 0, -0.25]

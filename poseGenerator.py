@@ -15,8 +15,8 @@ class PoseGenerator:
         self.controller = robotController
         self.planner = planner.LimbPlanner(world)
 
-        self.base_range = [0.005,0.005,0.005]
-        self.pose_range = [math.pi/180*2,math.pi/180*2,math.pi/180*2]
+        self.base_range = [0.001,0.001,0.001]
+        self.pose_range = [math.pi/180,math.pi/180,math.pi/180]
 
     def randomPose(self, range = 1.0):
         qmin,qmax = self.robot.getJointLimits()

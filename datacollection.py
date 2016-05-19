@@ -24,6 +24,9 @@ class dataCollector:
         self.robotXform = self.robot.link(6).getTransform()
         self.relativeXform = se3.mul(se3.inv(self.objXform), self.robotXform)
 
+        # for sanity check (checked that the relative transform output is correct)
+        # print "obj", self.objXform[1], "robot", self.robotXform[1], "relative", self.relativeXform[1]
+
         self.robotConfig = []
         for i in self.validLinks:
             self.robotConfig.append(self.robot.getConfig()[i])
