@@ -9,14 +9,7 @@ import os
 import random
 
 class LimbCSpace (CSpace):
-    """Much of your code for HW4 will go here.  This class
-    defines hooks for a motion planner.  Primarily you must define a sampling
-    bound and feasibility test.  See klampt/cspace.py for more details
-    on what else you can tweak.
-
-    The configuration space is the 7-DOF configuration space of a
-    single limb's joint angles.
-
+    """
     Attributes:
         - planner: the LimbPlanner object.  Useful for calling the
           get/set/check methods.
@@ -27,22 +20,17 @@ class LimbCSpace (CSpace):
           the minimum/maximum range on each dimension.
         - eps: edge collision tolerance
     """
-    def __init__(self,planner,limb):
+    def __init__(self,planner):
         CSpace.__init__(self)
         self.planner = planner
-        self.limb = limb
+
         #TODO: what Cartesian bounding box should the planner sample from?
         self.robot = self.planner.robot
         id_to_index = dict([(self.robot.link(i).getID(),i) for i in range(self.robot.numLinks())])
-        if limb=='left':
-            # self.limb_indices = left_arm_geometry_indices + left_hand_geometry_indices
-            self.limb_indices = self.planner.left_arm_indices
-        else:
-            # self.limb_indices = right_arm_geometry_indices + right_hand_geometry_indices
-            self.limb_indices = self.planner.right_arm_indices
+
         qmin,qmax = self.robot.getJointLimits()
-        self.bound = [(qmin[i]-1e-6,qmax[i]+1e-6) for i in self.limb_indices]
-        self.eps = 1e-1
+        self.bound = [(qmin[i]+1e-6,qmax[i]-1e-6) for i in self.limb_indices]
+        self.eps = 1e-3
 
     def feasible(self,q):
         if len(q) != len(self.bound):
@@ -95,12 +83,12 @@ class LimbPlanner:
 
         #check with objects in world model
         for o1,o2 in self.collider.collisionTests(armfilter,lambda x:True):
-            #print "Collision Test: Collision between",o1[0].getName(),o2[0].getName()
+            # print "Collision Test: Collision between",o1[0].getName(),o2[0].getName()
             #print "Collision Test: Collision for ",o2[0].getName()
             #print o1[0].index, o2[0].index
 
             if o1[1].collides(o2[1]):
-                print "Collision between",o1[0].getName(),o2[0].getName()
+                # print "Collision between",o1[0].getName(),o2[0].getName()
                 # print "Collision between",o1[0].index,o2[0].index
                 return False
         return True
