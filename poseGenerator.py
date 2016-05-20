@@ -2,6 +2,7 @@ import math, random
 from klampt import vectorops, se3, so3, loader, gldraw, ik, contact,robotcollide
 import planner
 from operator import itemgetter
+import copy
 
 # Joint numbers
 swivel_finger_links = [8,13]
@@ -18,9 +19,16 @@ class PoseGenerator:
         self.base_range = [0.001,0.001,0.001]
         self.pose_range = [math.pi/180,math.pi/180,math.pi/180]
 
-    def randomPose(self, range = 1.0):
+    def collisionFree(self, config):
+        self.planner = planner.LimbPlanner(self.world)
+        return self.planner.check_collision_free()
+
+    def randomPose(self, qcmd = None, range = 1.0):
         qmin,qmax = self.robot.getJointLimits()
-        center = self.controller.getCommandedConfig()
+        if qcmd == None:
+            center = self.controller.getCommandedConfig()
+        else:
+            center = qcmd
         q = center
         rangeVal = self.base_range+self.pose_range
 
@@ -28,20 +36,26 @@ class PoseGenerator:
             q[j] = random.uniform(max(qmin[j],center[j]-rangeVal[j]*range),min(qmax[j],center[j]+rangeVal[j]*range))
         return q
 
+    # TODO: incrementally further away from the INITIAL config, not the latest random config!!!
     def randomPoses(self, iter):
+        initialConfig = self.controller.getCommandedConfig()
         qList = []
         # for i in range(iter):
         i = 1
         while len(qList) < iter:
 
-            q = self.randomPose(range=i/5.0)
+            q = self.randomPose(qcmd = copy.copy(initialConfig), range=i/5.0)
+
+            # if randomPose is in collision with world, create another one
+            if not self.collisionFree(q):
+                continue
 
             self.robot.setConfig(q)
             d = self.distance()
 
             # hand too close to object
             dObjHand = d[0]
-            if dObjHand < 0.01:
+            if dObjHand < 0.0001:
                 continue
 
             # hand too close to ground
