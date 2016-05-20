@@ -3,6 +3,7 @@
 # TODO:  1) load non-primitive object (ie. mug cup?)
 #        2) reset object position to its initial location after each trial
 #        3) log palm normal vector direction and visualize it instead of w/theta
+#        4) come up of geometric constraints, and generate grasp data from the constraints, and compare them to randomly sampled data
 from klampt import robotsim
 from klampt.glprogram import *
 from klampt import vectorops, se3, so3, loader, gldraw, ik, contact,robotcollide
@@ -225,8 +226,12 @@ def set_gripper_location_command(robot,command):
     q = robot.getConfig()
     # q[linkNum] = random.uniform(qmin[linkNum],qmax[linkNum])
     if linkNum <3:
+        # translate
         q[linkNum] = q[linkNum] + 0.01
+    elif linkNum >5:
+        q[linkNum-6] = q[linkNum-6] - 0.01
     else:
+        # rotate
         q[linkNum] = q[linkNum] + 0.1
     robot.setConfig(q)
 
@@ -294,7 +299,7 @@ def run_controller(controller,command_queue):
                 dc.save()
             elif c == 'd':
                 print pg.distance()
-                dc.update()
+                pg.collisionFree(simWorld.robot(0).getConfig)
             elif c == 't':
                 print "test"
                 # print simWorld.rigidObject(0).getTransform()
@@ -308,7 +313,7 @@ def run_controller(controller,command_queue):
                 # xform = obj.getTransform()
                 # obj.geometry().transform(so3.identity(), vectorops.add(xform[1], [0,0,0.2]))
 
-                poses = pg.randomPoses(300)
+                poses = pg.randomPoses(30)
                 # dc.newFile()
                 # dc.update()
                 # dc.save()
@@ -507,7 +512,7 @@ def load_world():
 
     R,t = world.robot(0).link(0).getParentTransform()
     R_reorient = so3.rotation([1,0,0], math.pi/2)
-    offset = (0,0.15,0.15)
+    offset = (0,0.15,0.1)
 
     R = so3.mul(R,R_reorient)
     t = vectorops.add(t, offset)
@@ -524,8 +529,9 @@ def load_item_geometry(bmin,bmax,geometry_ptr = None):
     if geometry_ptr == None:
         geometry_ptr = Geometry3D()
 
-    fn = model_dir + "cylinder.tri"
-    # fn = model_dir + "objects/cupmodel/Mug.obj"
+    # fn = model_dir + "cylinder.tri"
+    fn = model_dir + "cube.tri"
+    # fn = model_dir + "/objects/teapot/pots.tri"
     # bmin = [0,0,0]
     # bmax = [1.2,1.5,1.25]
     # fn = model_dir + "items/rollodex_mesh_collection_jumbo_pencil_cup/textured_meshes/optimized_poisson_textured_mesh.ply"
@@ -536,8 +542,7 @@ def load_item_geometry(bmin,bmax,geometry_ptr = None):
     center = vectorops.mul(vectorops.add(bmin,bmax),0.5)
     scale = [bmax[0]-bmin[0],0,0,0,bmax[1]-bmin[1],0,0,0,bmax[2]-bmin[2]]
     translate = vectorops.sub(bmin,center)
-
-    geometry_ptr.transform(scale,translate)
+    geometry_ptr.transform(so3.mul(scale,so3.rotation([0,0,1],math.pi/180*0)),translate)
     geometry_ptr.setCurrentTransform(so3.identity(),[0,0,0])
     return geometry_ptr
 def spawn_objects(world):
@@ -548,7 +553,7 @@ def spawn_objects(world):
 
     obj = world.makeRigidObject('object1')
     bmin = [0,0,0]
-    bmax = [0.02,0.05,0.25]
+    bmax = [0.08,0.08,0.3]
 
     mass = 0.001
     m = obj.getMass()
@@ -558,15 +563,15 @@ def spawn_objects(world):
     obj.setMass(m)
 
     c = obj.getContactParameters()
-    c.kFriction = 1
+    c.kFriction = 10
     c.kRestitution = 0.1;
-    c.kStiffness = 10
+    c.kStiffness = 100
     c.kDamping = 10
     obj.setContactParameters(c)
 
     load_item_geometry(bmin,bmax,obj.geometry())
 
-    obj.setTransform(so3.identity(),[0,-0.2,0.14])
+    obj.setTransform(so3.identity(),[0,-0.2,0.155])
     return obj
 def myCameraSettings(visualizer):
     visualizer.camera.tgt = [0, 0, -0.25]
@@ -598,4 +603,3 @@ if __name__ == "__main__":
     pg = poseGenerator.PoseGenerator(simWorld, simWorld.robot(0), visualizer.sim.controller(0))
 
     visualizer.run()
-
