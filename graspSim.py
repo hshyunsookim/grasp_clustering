@@ -142,6 +142,8 @@ class LowLevelController:
         For the parallel-jaw gripper, [0] is closed, [1] is open
         Warning: don't do this while moving"""
         self.lock.acquire()
+        # global dq
+        # print dq
         q = self.controller.getCommandedConfig()
         self.robotModel.setConfig(q)
         completed = set_model_gripper_command(self.robotModel,command)
@@ -279,10 +281,10 @@ def run_controller(controller,command_queue):
             if c == 'x':
                 completed = False
                 global dq
-                dq = 0.5
+                dq = 0.1
                 while not completed:
                     completed = controller.commandGripper([1])[0]
-                    time.sleep(0.01)
+                    time.sleep(0.05)
             elif c == 'u':
                 for i in range(50):
                     controller.commandGripper([-1])
@@ -313,36 +315,49 @@ def run_controller(controller,command_queue):
                 # xform = obj.getTransform()
                 # obj.geometry().transform(so3.identity(), vectorops.add(xform[1], [0,0,0.2]))
 
-                poses = pg.randomPoses(30)
+                # poses = pg.randomPoses(1)
                 # dc.newFile()
                 # dc.update()
                 # dc.save()
-                for i in range(len(poses)):
+
+
+                ## save current robot config (pre-grasp)
+
+
+                numPoses = 500
+                for i in range(numPoses):
                     for j in range(50):
                         controller.commandGripper([-1])
                         time.sleep(0.01)
 
+                    # print "iter:", i
+                    poses = []
+                    poses = pg.randomPoses(1, range=i)
+                    # poses = pg.randomPoses(1)
+
+
                     # print pg.distance()
                     time.sleep(0.5)
-                    controller.setMilestone(poses[i])
+                    controller.setMilestone(poses[0])
                     time.sleep(0.5)
 
                     completed = False
                     global dq
-                    dq = 0.5
+                    dq = 0.1
                     while not completed:
-                        result = controller.commandGripper([1])
+                        # print dq
+                        result = controller.commandGripper([1.0])
                         completed = result[0]
                         graspSuccess = result[1]
-                        time.sleep(0.01)
+                        time.sleep(0.05)
 
                     completed = False
-                    dq = 0.5
+                    dq = 0.1
                     while not completed:
                         result = controller.commandGripper([1])
                         completed = result[0]
                         graspSuccess = result[1]
-                        time.sleep(0.01)
+                        time.sleep(0.05)
 
                     # time.sleep()
 
