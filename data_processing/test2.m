@@ -35,7 +35,7 @@ proximal_finger = config(:,[2,4,5]);
 clearvars -except M xform quat w theta x y z config proximal_finger swivel_finger
 
 %% Plot Settings
-grasp_types = 3;
+grasp_types = 1;
 samples = [150, 230, size(M,1)];
 styles = {'k.', 'b.', 'k.'};
 
