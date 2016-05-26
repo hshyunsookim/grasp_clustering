@@ -37,14 +37,21 @@ class PoseGenerator:
         return q
 
     # TODO: incrementally further away from the INITIAL config, not the latest random config!!!
-    def randomPoses(self, iter):
+    def randomPoses(self, iter, range=None):
         initialConfig = self.controller.getCommandedConfig()
         qList = []
         # for i in range(iter):
         i = 1
         while len(qList) < iter:
+            self.robot.setConfig(initialConfig)
 
-            q = self.randomPose(qcmd = copy.copy(initialConfig), range=i/5.0)
+            # q = self.randomPose(qcmd = copy.copy(initialConfig), range=i/5.0)
+            if range == None:
+                # print "range is not specified. Use ", i/1.0
+                q = self.randomPose(qcmd = copy.copy(initialConfig), range=i/1.0)
+            else:
+                # print "range specified as", range
+                q = self.randomPose(qcmd = copy.copy(initialConfig), range=range)
 
             # if randomPose is in collision with world, create another one
             if not self.collisionFree(q):
@@ -63,7 +70,7 @@ class PoseGenerator:
             if dGroundHand < 0.01:
                 continue
 
-            print i, d
+            # print i, d
             qList.append(q)
             i += 1
 
