@@ -33,7 +33,14 @@ class PoseGenerator:
         rangeVal = self.base_range+self.pose_range
 
         for j in base_links:
-            q[j] = random.uniform(max(qmin[j],center[j]-rangeVal[j]*range),min(qmax[j],center[j]+rangeVal[j]*range))
+            minimum = max(qmin[j],center[j]-rangeVal[j]*range)
+            maximum = min(qmax[j],center[j]+rangeVal[j]*range)
+
+            # sampling from uniform distribution
+            # q[j] = random.uniform(minimum, maximum)
+
+            # sampling from normal distribution
+            q[j] = min(max(random.gauss(center[j], rangeVal[j]*range),minimum), maximum)
         return q
 
     # TODO: incrementally further away from the INITIAL config, not the latest random config!!!
