@@ -16,12 +16,12 @@ class PoseGenerator:
         self.controller = robotController
         self.planner = planner.LimbPlanner(world)
 
-        self.base_range = [0.001,0.001,0.001]
+        self.base_range = [0.005,0.005,0.005]
         self.pose_range = [math.pi/180,math.pi/180,math.pi/180]
 
     def collisionFree(self, config):
         self.planner = planner.LimbPlanner(self.world)
-        return self.planner.check_collision_free()
+        return self.planner.check_collision_free(config)
 
     def randomPose(self, qcmd = None, range = 1.0):
         qmin,qmax = self.robot.getJointLimits()
@@ -33,13 +33,14 @@ class PoseGenerator:
         rangeVal = self.base_range+self.pose_range
 
         for j in base_links:
-            minimum = max(qmin[j],center[j]-rangeVal[j]*range)
-            maximum = min(qmax[j],center[j]+rangeVal[j]*range)
-
             # sampling from uniform distribution
+            # minimum = max(qmin[j],center[j]-rangeVal[j]*range)
+            # maximum = min(qmax[j],center[j]+rangeVal[j]*range)
             # q[j] = random.uniform(minimum, maximum)
 
             # sampling from normal distribution
+            minimum = qmin[j]
+            maximum = qmax[j]
             q[j] = min(max(random.gauss(center[j], rangeVal[j]*range),minimum), maximum)
         return q
 

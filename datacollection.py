@@ -19,6 +19,8 @@ class dataCollector:
         swivel_finger_links = [8,13]
         proximal_finger_links = [9,14,18]
 
+        self.timestr = None
+
     def update(self):
         self.objXform = self.object.getTransform()
         self.robotXform = self.robot.link(6).getTransform()
@@ -33,25 +35,43 @@ class dataCollector:
         # print self.robotConfig
 
     def newFile(self, printout = True):
-        timestr = time.strftime("%Y%m%d-%H%M%S")
-        fileName = "data_logs/datalog_"+timestr+".txt"
-        f = open(fileName, "w")
+        self.timestr = time.strftime("%Y%m%d-%H%M%S")
+        fileName = "datalog_"+self.timestr+".txt"
+        f = open("data_logs/"+fileName, "w")
         f.write("")
         f.close()
 
         if printout:
             print "created a new log file! (", fileName, ")"
 
-    def save(self, printout = True):
+    def save(self, case, printout = True):
         r = re.compile(r'datalog_\d{8}-\d{6}\.txt$')
-        fileName = "data_logs/"+max(filter(r.search,os.listdir('data_logs/')))
+        fileName = max(filter(r.search,os.listdir('data_logs/')))
 
-        logEntry = str([self.relativeXform, self.robotConfig])
+        logEntry = str([self.relativeXform, self.robotConfig, case])
         logEntry = logEntry.translate(None, '([]),')
 
-        f = open(fileName, "a")
+        f = open("data_logs/"+fileName, "a")
         f.write( logEntry + '\n')
         f.close()
 
         if printout:
             print "current relative xform and config saved! (", fileName, ")"
+
+    def saveInitialConfig(self):
+        fileName = "initconfiglog_"+self.timestr+".txt"
+        f = open("initconfig_logs/"+fileName, "w")
+        logEntry = str([self.robot.getConfig()])
+        logEntry = logEntry.translate(None, '([]),')
+        f.write( logEntry + '\n')
+        f.close()
+
+        print "initial config saved! (", fileName, ")"
+
+    def loadInitialConfig(self):
+        r = re.compile(r'initconfiglog_\d{8}-\d{6}\.txt$')
+        fileName = max(filter(r.search,os.listdir('initconfig_logs/')))
+        f = open("initconfig_logs/"+fileName, "r")
+        config = [float(i) for i in f.read().split()]
+        f.close()
+        return config

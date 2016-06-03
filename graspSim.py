@@ -1,4 +1,4 @@
-#!/usr/bin/python
+# !/usr/bin/python
 
 # TODO:  1) load non-primitive object (ie. mug cup?)
 #        2) reset object position to its initial location after each trial
@@ -20,12 +20,14 @@ from operator import itemgetter
 
 import datacollection
 import poseGenerator
+import planner
 
 # The path of the klampt_models directory
 model_dir = "klampt_models/"
 
 # simulation mode
 global FAKE_SIMULATION
+global automatic
 FAKE_SIMULATION = 0
 
 # dq = 1.0
@@ -291,11 +293,54 @@ def run_controller(controller,command_queue):
                     time.sleep(0.01)
 
             elif c == 'r':
-                time.sleep(.5)
-                controller.randomMoveHand(range=1)
-                time.sleep(.5)
+                # time.sleep(.5)
+                # controller.randomMoveHand(range=1)
+                # time.sleep(.5)
+                python = sys.executable
+                if len(sys.argv) < 2:
+                    sys.argv += ['auto']
+                os.execl(python, python, * sys.argv)
+
             elif c == 'n':
+                # create a new file to save grasp data
                 dc.newFile()
+
+                # save current pre-grasp to be used when the simulator restarts from failed grasp
+                dc.saveInitialConfig()
+
+            elif c == 'l':
+                # load initial config, and move robot to this config
+                config = dc.loadInitialConfig()
+                # print "current config = ", simWorld.robot(0).getConfig()
+                # print "goal config = ", config
+
+                for i in [3,4,5,10,15,19]:
+                    while not ((config[i] > -math.pi) and (config[i] < math.pi)):
+                        if config[i] < 0:
+                            config[i] += math.pi*2
+                        else:
+                            config[i] -= math.pi*2
+                # print "adjusted goal config = ", config
+
+
+                # move to this config
+                # TODO: implement a trajectory planning to reach this config w/o collision
+                # controller.appendMilestone(config)
+                start = controller.getCommandedConfig()
+                planWorld.rigidObject(0).geometry().setCollisionMargin(0.01)
+                # planWorld.rigidObject(0).geometry().setCollisionMargin(0)
+                path = planner.plan(start, config)
+                # print path
+                if path == None:
+                    print "Planning failed"
+                else:
+                    for i in range(len(path)):
+                        controller.appendMilestone(path[i])
+                    while controller.isMoving():
+                        time.sleep(0.1)
+                    planWorld.rigidObject(0).geometry().setCollisionMargin(0.0)
+
+
             elif c == 's':
                 dc.update()
                 dc.save()
@@ -326,13 +371,14 @@ def run_controller(controller,command_queue):
 
                 numPoses = 500
                 for i in range(numPoses):
-                    for j in range(50):
+                    for j in range(100):
                         controller.commandGripper([-1])
                         time.sleep(0.01)
-
+                    time.sleep(0.1)
                     # print "iter:", i
                     poses = []
-                    poses = pg.randomPoses(1, range=i)
+                    # poses = pg.randomPoses(1, range=i+1)
+                    poses = pg.randomPoses(1, range=1)
                     # poses = pg.randomPoses(1)
 
 
@@ -342,7 +388,7 @@ def run_controller(controller,command_queue):
                     time.sleep(0.5)
 
                     completed = False
-                    global dq
+                    # global dq
                     dq = 0.1
                     while not completed:
                         # print dq
@@ -364,9 +410,16 @@ def run_controller(controller,command_queue):
                     if graspSuccess:
                         print "grasp #", i, "success, saving to log"
                         dc.update()
-                        dc.save()
+
+                        # save success case
+                        dc.save(1)
                     else:
-                        print "grasp #", i, "fail, not saving to log"
+                        print "grasp #", i, "fail, saving to log"
+                        dc.update()
+
+                        # save failure case
+                        dc.save(0)
+                        command_queue.put('r')
                         break
 
 
@@ -394,7 +447,7 @@ class MyGLViewer(GLRealtimeProgram):
     def __init__(self,simworld,planworld):
         GLRealtimeProgram.__init__(self,"My GL program")
         self.simworld = simworld
-        self.planworld = None
+        self.planworld = planworld
         self.sim = robotsim.Simulator(simworld)
         self.simulate = True
         # self.sim.simulate(0)
@@ -412,7 +465,11 @@ class MyGLViewer(GLRealtimeProgram):
         self.sim.enableContactFeedbackAll()
 
         # visual settings
-        self.showFrames = True
+        self.showFrames = False
+
+        # automatic restart
+        self.automatic = None
+
     def idle(self):
         if self.simulate:
             self.sim.simulate(self.dt)
@@ -432,7 +489,7 @@ class MyGLViewer(GLRealtimeProgram):
                     x=[0,0,0]
                     n=[0,0,0]
                     k=0
-                    scale = 3
+                    scale = 5
 
                     if len(contacts) != 0:
                         for numContact in range(len(contacts)):
@@ -443,6 +500,35 @@ class MyGLViewer(GLRealtimeProgram):
                         n = vectorops.div(n,len(contacts))
                         k = k/(len(contacts)*scale)
                         draw_vector(x,n,k)
+
+    def drawRoadmap(self):
+        V,E = planner.roadmap
+        positions = []
+
+        gldraw.xform_widget(self.simworld.robot(0).link(0).getTransform(), 0.1, 0.015, lighting=False, fancy=True)
+
+        # print len(V)
+        for v in V:
+            qcmd = self.planworld.robot(0).getConfig()
+            self.planworld.robot(0).setConfig(qcmd)
+
+            linkNum = 0
+            R = self.planworld.robot(0).link(linkNum).getTransform()[0]
+            t = self.planworld.robot(0).link(linkNum).getTransform()[1]
+            # loc = self.planworld.robot(0).link(54).getTransform()[1]
+            positions.append(t)
+
+            # remove this line later (slows down the visualizer)
+            gldraw.xform_widget([R,t], 0.015, 0.002, lighting=False, fancy=True)
+
+        glColor3f(0.1,0.1,0.1)
+        glLineWidth(0.1)
+        glBegin(GL_LINES)
+        for (i,j) in E:
+            glVertex3f(*positions[i])
+            glVertex3f(*positions[j])
+        glEnd()
+
     def display(self):
         #draw the world
         self.sim.updateWorld()
@@ -461,9 +547,17 @@ class MyGLViewer(GLRealtimeProgram):
         glDisable(GL_BLEND)
 
         self.drawContactForces()
+        # self.drawRoadmap()
 
-
-
+        # add commands to queue if automatically restarted
+        global automatic
+        if automatic >= 1:
+            automatic += 1
+        if automatic == 10:
+            self.command_queue.put('l')
+            self.command_queue.put('x')
+            self.command_queue.put('t')
+            automatic = -1
 
 
 
@@ -587,6 +681,8 @@ def spawn_objects(world):
     load_item_geometry(bmin,bmax,obj.geometry())
 
     obj.setTransform(so3.identity(),[0,-0.2,0.155])
+    obj.geometry().setCollisionMargin(0)
+
     return obj
 def myCameraSettings(visualizer):
     visualizer.camera.tgt = [0, 0, -0.25]
@@ -598,17 +694,28 @@ def myCameraSettings(visualizer):
     return
 
 if __name__ == "__main__":
+
+    automatic = 0
+    print len(sys.argv)
+    if len(sys.argv) >= 2:
+        print sys.argv
+        print "automatically running... starting from savef initialConfig"
+        automatic = 1
+
+
+
     simWorld = load_world()
-    world = load_world()
+    planWorld = load_world()
 
     # spawn_objects(world)
     obj = spawn_objects(simWorld)
+    obj = spawn_objects(planWorld)
 
     # collider
     col = robotcollide.WorldCollider(simWorld)
 
     #run the visualizer
-    visualizer = MyGLViewer(simWorld,world)
+    visualizer = MyGLViewer(simWorld,planWorld)
     myCameraSettings(visualizer)
 
     # dataCollector
@@ -616,5 +723,8 @@ if __name__ == "__main__":
 
     # poseGenerator
     pg = poseGenerator.PoseGenerator(simWorld, simWorld.robot(0), visualizer.sim.controller(0))
+
+    # planner
+    planner = planner.LimbPlanner(planWorld)
 
     visualizer.run()
