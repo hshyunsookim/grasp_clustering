@@ -10,6 +10,7 @@ addpath('../data_logs')
 % M = dlmread('datalog_20160520-121153.txt');
 M = dlmread('datalog_20160520-141826.txt');
 
+
 xform = M(:,1:12);
 quat = zeros(size(M,1),4);
 for i=1:size(M,1)

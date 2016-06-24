@@ -373,8 +373,8 @@ def run_controller(controller,command_queue):
                 for i in range(numPoses):
                     for j in range(100):
                         controller.commandGripper([-1])
-                        time.sleep(0.01)
-                    time.sleep(0.1)
+                        time.sleep(0.02)
+                    time.sleep(0.5)
                     # print "iter:", i
                     poses = []
                     # poses = pg.randomPoses(1, range=i+1)
@@ -465,7 +465,7 @@ class MyGLViewer(GLRealtimeProgram):
         self.sim.enableContactFeedbackAll()
 
         # visual settings
-        self.showFrames = False
+        self.showFrames = True
 
         # automatic restart
         self.automatic = None
@@ -701,8 +701,6 @@ if __name__ == "__main__":
         print sys.argv
         print "automatically running... starting from savef initialConfig"
         automatic = 1
-
-
 
     simWorld = load_world()
     planWorld = load_world()

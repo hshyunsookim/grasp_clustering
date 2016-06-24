@@ -4,6 +4,7 @@ clc, clear
 addpath('../data_logs')
 % M = dlmread('datalog_20160602-131519.txt');
 M = dlmread('datalog_20160602-142723.txt');
+% M = dlmread('datalog_20160607-115351.txt');
 
 xform = M(:,1:12);
 quat = zeros(size(M,1),4);
